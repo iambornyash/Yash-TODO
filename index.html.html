@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Yash's Case Board</title>
+
+<!-- PWA / iPhone Home Screen Support -->
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#141e30">
+
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #141e30, #243b55);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    color: white;
+    margin: 0;
+}
+.container {
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    padding: 20px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.4);
+}
+h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+input, button {
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    margin: 5px 0;
+    font-size: 16px;
+}
+input[type="text"], input[type="time"] {
+    width: 100%;
+    margin-bottom: 10px;
+}
+button {
+    width: 100%;
+    background: #00c9ff;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+button:hover {
+    background: #92fe9d;
+    color: black;
+}
+ul {
+    list-style: none;
+    padding: 0;
+    margin-top: 15px;
+}
+li {
+    background: rgba(255,255,255,0.15);
+    margin: 8px 0;
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: 0.3s;
+    min-height: 50px;
+}
+.task-info {
+    cursor: pointer;
+    flex: 1;
+}
+.completed {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+.done-message {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ffcc00;
+    color: black;
+    padding: 15px 25px;
+    border-radius: 50px;
+    font-weight: bold;
+    animation: pop 0.6s ease forwards;
+    z-index: 1000;
+}
+@keyframes pop {
+    0% { transform: translateX(-50%) scale(0.5); opacity: 0; }
+    50% { transform: translateX(-50%) scale(1.2); }
+    100% { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+.delete-btn {
+    background: crimson;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-left: 10px;
+}
+#exportBtn, #importFile {
+    margin-top: 10px;
+}
+.highlight {
+    border: 2px solid #ffeb3b !important;
+}
+.top-task {
+    border-left: 4px solid #00ff88;
+    padding-left: 6px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+    <h2>⚡ Yash's Task List</h2>
+    <input type="text" id="taskInput" placeholder="Enter case...">
+    <input type="time" id="timeInput">
+    <button onclick="addTask()">Add Case</button>
+
+    <ul id="taskList"></ul>
+
+    <button id="exportBtn" onclick="exportTasks()">Download Task List</button>
+    <input type="file" id="importFile" onchange="importTasks(this.files[0])">
+</div>
+
+<script>
+// Tasks array
+let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+
+// Save tasks
+function saveTasks() {
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+}
+
+// Render tasks
+function renderTasks() {
+    const list = document.getElementById("taskList");
+    list.innerHTML = "";
+
+    // Sort tasks by time
+    tasks.sort((a,b)=>a.time.localeCompare(b.time));
+
+    tasks.forEach((task, index) => {
+        const li = document.createElement("li");
+
+        const taskInfo = document.createElement("div");
+        taskInfo.className = "task-info";
+        taskInfo.innerHTML = `<strong>${task.text}</strong><br><small>⏰ ${task.time}</small>`;
+        if (task.completed) taskInfo.classList.add("completed");
+
+        taskInfo.onclick = () => completeTask(index);
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "delete-btn";
+        deleteBtn.textContent = "X";
+        deleteBtn.onclick = () => deleteTask(index);
+
+        li.appendChild(taskInfo);
+        li.appendChild(deleteBtn);
+        list.appendChild(li);
+    });
+
+    highlightUpcomingTasks();
+    highlightTopTasks();
+}
+
+// Add task
+function addTask() {
+    const text = document.getElementById("taskInput").value;
+    const time = document.getElementById("timeInput").value;
+
+    if (!text || !time) { alert("Enter case and time!"); return; }
+
+    tasks.push({ text, time, completed: false });
+    saveTasks();
+    renderTasks();
+
+    document.getElementById("taskInput").value = "";
+    document.getElementById("timeInput").value = "";
+}
+
+// Complete task
+function completeTask(index) {
+    tasks[index].completed = !tasks[index].completed;
+    saveTasks();
+    renderTasks();
+
+    if (tasks[index].completed) showDoneMessage();
+}
+
+// Delete task
+function deleteTask(index) {
+    tasks.splice(index,1);
+    saveTasks();
+    renderTasks();
+}
+
+// “CASE CLOSED” message
+function showDoneMessage() {
+    const msg = document.createElement("div");
+    msg.className = "done-message";
+    msg.textContent = "🔥 CASE CLOSED!";
+    document.body.appendChild(msg);
+    setTimeout(()=>msg.remove(), 1500);
+}
+
+// Highlight upcoming tasks (15 min)
+function highlightUpcomingTasks() {
+    const now = new Date();
+    tasks.forEach((task,index)=>{
+        const [h,m] = task.time.split(":");
+        const taskTime = new Date();
+        taskTime.setHours(h,m,0);
+
+        const li = document.querySelectorAll("#taskList li")[index];
+        if(!task.completed && (taskTime-now)<=15*60*1000 && (taskTime-now)>0){
+            li.classList.add("highlight");
+        } else {
+            li.classList.remove("highlight");
+        }
+    });
+}
+
+// Highlight top 3 tasks
+function highlightTopTasks() {
+    const visibleTasks = document.querySelectorAll("#taskList li");
+    for(let i=0;i<visibleTasks.length;i++){
+        visibleTasks[i].classList.remove("top-task");
+        if(i<3 && !tasks[i].completed){
+            visibleTasks[i].classList.add("top-task");
+        }
+    }
+}
+
+// Export as plain text
+function exportTasks() {
+    const dataStr = tasks.map(task => `[${task.time}] ${task.text}${task.completed ? " ✅" : ""}`).join("\n");
+    
+    const blob = new Blob([dataStr], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "cases.txt";
+    a.click();
+}
+
+// Import tasks (JSON)
+function importTasks(file) {
+    const reader = new FileReader();
+    reader.onload=(e)=>{
+        tasks = JSON.parse(e.target.result);
+        saveTasks();
+        renderTasks();
+    };
+    reader.readAsText(file);
+}
+
+// Enter key support
+document.getElementById("taskInput").addEventListener("keypress", e=>{if(e.key==="Enter") addTask();});
+document.getElementById("timeInput").addEventListener("keypress", e=>{if(e.key==="Enter") addTask();});
+
+// Refresh highlights every minute
+setInterval(highlightUpcomingTasks,60*1000);
+
+// Initial render
+renderTasks();
+</script>
+</body>
+</html>
